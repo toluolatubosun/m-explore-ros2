@@ -131,6 +131,9 @@ Explore::Explore()
       std::chrono::milliseconds((uint16_t)(1000.0 / planner_frequency_)),
       [this]() { makePlan(); });
   // Start exploration right away
+  auto status_msg = std_msgs::msg::String(); 
+  status_msg.data = "exploration_started";
+  status_pub_->publish(status_msg);   
   makePlan();
 }
 
