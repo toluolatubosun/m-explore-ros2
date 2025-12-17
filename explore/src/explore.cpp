@@ -99,7 +99,9 @@ Explore::Explore()
   }
 
   // Publisher for exploration status
-  status_pub_ = this->create_publisher<std_msgs::msg::String>("explore/status", 10);
+  rclcpp::QoS status_qos(10);
+  status_qos.transient_local();
+  status_pub_ = this->create_publisher<std_msgs::msg::String>("explore/status", status_qos);
 
   // Subscription to resume or stop exploration
   resume_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
