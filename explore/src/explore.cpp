@@ -98,6 +98,9 @@ Explore::Explore()
                                                                      10);
   }
 
+  // Publisher for exploration status
+  status_pub_ = this->create_publisher<std_msgs::msg::String>("explore/status", 10);
+
   // Subscription to resume or stop exploration
   resume_subscription_ = this->create_subscription<std_msgs::msg::Bool>(
       "explore/resume", 10,
@@ -250,6 +253,9 @@ void Explore::makePlan()
 
   if (frontiers.empty()) {
     RCLCPP_WARN(logger_, "No frontiers found, stopping.");
+    auto status_msg = std_msgs::msg::String();
+    status_msg.data = "exploration_complete";
+    status_pub_->publish(status_msg);
     stop(true);
     return;
   }
@@ -267,6 +273,9 @@ void Explore::makePlan()
                        });
   if (frontier == frontiers.end()) {
     RCLCPP_WARN(logger_, "All frontiers traversed/tried out, stopping.");
+    auto status_msg = std_msgs::msg::String();
+    status_msg.data = "exploration_complete";
+    status_pub_->publish(status_msg);
     stop(true);
     return;
   }
@@ -326,6 +335,10 @@ void Explore::makePlan()
 void Explore::returnToInitialPose()
 {
   RCLCPP_INFO(logger_, "Returning to initial pose.");
+  auto status_msg = std_msgs::msg::String();
+  status_msg.data = "returning_to_origin";
+  status_pub_->publish(status_msg);
+  
   auto goal = nav2_msgs::action::NavigateToPose::Goal();
   goal.pose.pose.position = initial_pose_.position;
   goal.pose.pose.orientation = initial_pose_.orientation;
@@ -334,9 +347,17 @@ void Explore::returnToInitialPose()
 
   auto send_goal_options =
       rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+  send_goal_options.result_callback = 
+      [this](const NavigationGoalHandle::WrappedResult& result) {
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
+          auto status_msg = std_msgs::msg::String();
+          status_msg.data = "returned_to_origin";
+          status_pub_->publish(status_msg);
+          RCLCPP_INFO(logger_, "Successfully returned to initial pose.");
+        }
+      };
   move_base_client_->async_send_goal(goal, send_goal_options);
 }
-
 bool Explore::goalOnBlacklist(const geometry_msgs::msg::Point& goal)
 {
   constexpr static size_t tolerace = 5;
@@ -392,11 +413,22 @@ void Explore::reachedGoal(const NavigationGoalHandle::WrappedResult& result,
 void Explore::start()
 {
   RCLCPP_INFO(logger_, "Exploration started.");
+  auto status_msg = std_msgs::msg::String();
+  status_msg.data = "exploration_started";
+  status_pub_->publish(status_msg);
 }
 
 void Explore::stop(bool finished_exploring)
 {
   RCLCPP_INFO(logger_, "Exploration stopped.");
+  
+  // Only publish paused status if manually stopped (not finished exploring)
+  if (!finished_exploring) {
+    auto status_msg = std_msgs::msg::String();
+    status_msg.data = "exploration_paused";
+    status_pub_->publish(status_msg);
+  }
+  
   move_base_client_->async_cancel_all_goals();
   exploring_timer_->cancel();
 
@@ -409,6 +441,9 @@ void Explore::resume()
 {
   resuming_ = true;
   RCLCPP_INFO(logger_, "Exploration resuming.");
+  auto status_msg = std_msgs::msg::String();
+  status_msg.data = "exploration_in_progress";
+  status_pub_->publish(status_msg);
   // Reactivate the timer
   exploring_timer_->reset();
   // Resume immediately

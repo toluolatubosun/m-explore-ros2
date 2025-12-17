@@ -45,6 +45,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <std_msgs/msg/string.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <memory>
 #include <mutex>
@@ -109,6 +110,20 @@ private:
 
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr
       marker_array_publisher_;
+
+  /**
+    * @brief Publisher for exploration status updates
+    * 
+    * Published status messages:
+    * - "exploration_started": Exploration has begun
+    * - "exploration_in_progress": Exploration resumed after pause
+    * - "exploration_paused": Exploration manually stopped via /explore/resume
+    * - "exploration_complete": No frontiers remaining, exploration finished
+    * - "returning_to_origin": Robot navigating back to initial pose
+    * - "returned_to_origin": Robot successfully reached initial pose
+    */
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
+
   rclcpp::Logger logger_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
